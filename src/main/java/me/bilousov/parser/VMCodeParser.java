@@ -10,10 +10,12 @@ import java.util.List;
 public class VMCodeParser {
 
     private static final String COMMENT_IDENTIFIER = "//";
+    private String fileName;
 
     public List<String> parseVMFile(String fileName){
         List<String> vmInstructions = new ArrayList<>();
         File vmFile = new File(fileName);
+        this.fileName = vmFile.getName();
 
         try {
             BufferedReader bufferedReader = new BufferedReader(new FileReader(vmFile));
@@ -31,6 +33,10 @@ public class VMCodeParser {
         }
 
         return vmInstructions;
+    }
+
+    public String getFileName(){
+        return fileName;
     }
 
     private boolean lineIsInstruction(String line){

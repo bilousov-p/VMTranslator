@@ -83,12 +83,8 @@ public class CodeTranslator {
         StringBuilder instructions = new StringBuilder();
         instructions.append("// ").append(pushCommand).append(LINE_SEPARATOR);
 
-        if(commandParts[1].equals("pointer")){
-            translatePointerPushCommand(instructions, commandParts);
-        } else {
-            selectMemorySegment(instructions, commandParts, fileName);
-            getValueFromMemorySegment(instructions, commandParts);
-        }
+        selectMemorySegment(instructions, commandParts, fileName);
+        getValueFromMemorySegment(instructions, commandParts);
 
         pushValueToStack(instructions);
         changeStackPointer(instructions, false);
@@ -96,18 +92,8 @@ public class CodeTranslator {
         return instructions.toString();
     }
 
-    private void translatePointerPushCommand(StringBuilder prevCommands, String[] commandParts){
-        if(commandParts[2].equals("0")){
-            prevCommands.append("@THIS").append(LINE_SEPARATOR);
-        } else {
-            prevCommands.append("@THAT").append(LINE_SEPARATOR);
-        }
-
-        prevCommands.append("D=M").append(LINE_SEPARATOR);
-    }
-
     private void getValueFromMemorySegment(StringBuilder prevCommands, String[] commandParts){
-        if(!commandParts[1].equals("constant") && !commandParts[1].equals("static")){
+        if(!commandParts[1].equals("constant") && !commandParts[1].equals("static") && !commandParts[1].equals("pointer")){
             prevCommands.append(memoryMapping.get(commandParts[1])).append(LINE_SEPARATOR);
             prevCommands.append("D=D+" + getProperMemoryValue(commandParts[1])).append(LINE_SEPARATOR);
             prevCommands.append("A=D").append(LINE_SEPARATOR);
@@ -124,8 +110,16 @@ public class CodeTranslator {
     }
 
     private void selectMemorySegment(StringBuilder prevCommands, String[] vmCommand, String fileName){
-        prevCommands.append("@" + (vmCommand[1].equals("static")? fileName + "." : "") + vmCommand[2]).append(LINE_SEPARATOR);
-        prevCommands.append("D=" + (vmCommand[1].equals("static")? M_REGISTER : A_REGISTER)).append(LINE_SEPARATOR);
+        String memorySegmentSelection = "@";
+
+        if(vmCommand[1].equals("pointer")){
+            memorySegmentSelection+=vmCommand[2].equals("0")? "THIS" : "THAT";
+        } else {
+            memorySegmentSelection+=(vmCommand[1].equals("static")? fileName + "." : "") + vmCommand[2];
+        }
+
+        prevCommands.append(memorySegmentSelection).append(LINE_SEPARATOR);
+        prevCommands.append("D=" + (vmCommand[1].equals("static") || vmCommand[1].equals("pointer")? M_REGISTER : A_REGISTER)).append(LINE_SEPARATOR);
     }
 
     private void pushValueToStack(StringBuilder prevCommands){

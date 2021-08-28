@@ -87,7 +87,19 @@ public class CodeTranslator {
         getValueFromMemorySegment(instructions, commandParts);
 
         pushValueToStack(instructions);
-        changeStackPointer(instructions, false);
+        increaseStackPointer(instructions);
+
+        return instructions.toString();
+    }
+
+    private String translatePopCommand(String popCommand, String fileName){
+        String[] commandParts = popCommand.split(" ");
+        StringBuilder instructions = new StringBuilder();
+        instructions.append("// ").append(popCommand).append(LINE_SEPARATOR);
+
+        getProperMemorySegment(commandParts, instructions, fileName);
+        decreaseStackPointer(instructions);
+        pushValueToMemSegment(commandParts, instructions);
 
         return instructions.toString();
     }
@@ -128,152 +140,44 @@ public class CodeTranslator {
         prevCommands.append("M=D").append(LINE_SEPARATOR);
     }
 
-    private void changeStackPointer(StringBuilder prevCommands, boolean decrease){
+    private void increaseStackPointer(StringBuilder prevCommands){
         prevCommands.append("@SP").append(LINE_SEPARATOR);;
-        prevCommands.append("M=M" + (decrease? "-" : "+") + "1").append(LINE_SEPARATOR);;
+        prevCommands.append("M=M+1").append(LINE_SEPARATOR);;
     }
 
-    private String translatePopCommand(String pushCommand, String fileName){
-        String[] commandParts = pushCommand.split(" ");
-        StringBuilder instructions = new StringBuilder();
+    private void decreaseStackPointer(StringBuilder prevCommands){
+        prevCommands.append("@SP").append(LINE_SEPARATOR);
+        prevCommands.append("M=M-1").append(LINE_SEPARATOR);
+        prevCommands.append("A=M").append(LINE_SEPARATOR);
+        prevCommands.append("D=M").append(LINE_SEPARATOR);
+    }
 
-        if(commandParts[1].equals("local")){
-            instructions.append("// ").append(pushCommand).append(LINE_SEPARATOR);
-            instructions.append("@" + commandParts[2]).append(LINE_SEPARATOR);
-            instructions.append("D=A").append(LINE_SEPARATOR);
-            instructions.append("@LCL").append(LINE_SEPARATOR);
-            instructions.append("D=D+M").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-            instructions.append("@SP").append(LINE_SEPARATOR);
-            instructions.append("M=M-1").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("D=M").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-
-            return instructions.toString();
-        }
-
-        if(commandParts[1].equals("argument")){
-            instructions.append("// ").append(pushCommand).append(LINE_SEPARATOR);
-            instructions.append("@" + commandParts[2]).append(LINE_SEPARATOR);
-            instructions.append("D=A").append(LINE_SEPARATOR);
-            instructions.append("@ARG").append(LINE_SEPARATOR);
-            instructions.append("D=D+M").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-            instructions.append("@SP").append(LINE_SEPARATOR);
-            instructions.append("M=M-1").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("D=M").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-
-            return instructions.toString();
-        }
-
-        if(commandParts[1].equals("this")){
-            instructions.append("// ").append(pushCommand).append(LINE_SEPARATOR);
-            instructions.append("@" + commandParts[2]).append(LINE_SEPARATOR);
-            instructions.append("D=A").append(LINE_SEPARATOR);
-            instructions.append("@THIS").append(LINE_SEPARATOR);
-            instructions.append("D=D+M").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-            instructions.append("@SP").append(LINE_SEPARATOR);
-            instructions.append("M=M-1").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("D=M").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-
-            return instructions.toString();
-        }
-
-        if(commandParts[1].equals("that")){
-            instructions.append("// ").append(pushCommand).append(LINE_SEPARATOR);
-            instructions.append("@" + commandParts[2]).append(LINE_SEPARATOR);
-            instructions.append("D=A").append(LINE_SEPARATOR);
-            instructions.append("@THAT").append(LINE_SEPARATOR);
-            instructions.append("D=D+M").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-            instructions.append("@SP").append(LINE_SEPARATOR);
-            instructions.append("M=M-1").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("D=M").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-
-            return instructions.toString();
-        }
-
-        if(commandParts[1].equals("temp")){
-            instructions.append("// ").append(pushCommand).append(LINE_SEPARATOR);
-            instructions.append("@" + commandParts[2]).append(LINE_SEPARATOR);
-            instructions.append("D=A").append(LINE_SEPARATOR);
-            instructions.append("@5").append(LINE_SEPARATOR);
-            instructions.append("D=D+A").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-            instructions.append("@SP").append(LINE_SEPARATOR);
-            instructions.append("M=M-1").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("D=M").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-
-            return instructions.toString();
-        }
-
-        if(commandParts[1].equals("static")){
-            instructions.append("// ").append(pushCommand).append(LINE_SEPARATOR);
-            instructions.append("@" + fileName + "." + commandParts[2]).append(LINE_SEPARATOR);
-            instructions.append("D=A").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-            instructions.append("@SP").append(LINE_SEPARATOR);
-            instructions.append("M=M-1").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("D=M").append(LINE_SEPARATOR);
-            instructions.append("@R13").append(LINE_SEPARATOR);
-            instructions.append("A=M").append(LINE_SEPARATOR);
-            instructions.append("M=D").append(LINE_SEPARATOR);
-
-            return instructions.toString();
-        }
-
+    private void pushValueToMemSegment(String[] commandParts, StringBuilder prevCommands){
         if(commandParts[1].equals("pointer")){
-            if(commandParts[2].equals("0")){
-                instructions.append("// ").append(pushCommand).append(LINE_SEPARATOR);
-                instructions.append("@SP").append(LINE_SEPARATOR);
-                instructions.append("M=M-1").append(LINE_SEPARATOR);
-                instructions.append("A=M").append(LINE_SEPARATOR);
-                instructions.append("D=M").append(LINE_SEPARATOR);
-                instructions.append("@THIS").append(LINE_SEPARATOR);
-                instructions.append("M=D").append(LINE_SEPARATOR);
-
-                return instructions.toString();
-            } else {
-                instructions.append("// ").append(pushCommand).append(LINE_SEPARATOR);
-                instructions.append("@SP").append(LINE_SEPARATOR);
-                instructions.append("M=M-1").append(LINE_SEPARATOR);
-                instructions.append("A=M").append(LINE_SEPARATOR);
-                instructions.append("D=M").append(LINE_SEPARATOR);
-                instructions.append("@THAT").append(LINE_SEPARATOR);
-                instructions.append("M=D").append(LINE_SEPARATOR);
-
-                return instructions.toString();
-            }
+            prevCommands.append(commandParts[2].equals("0") ? "@THIS" : "@THAT").append(LINE_SEPARATOR);
+        } else {
+            prevCommands.append("@R13").append(LINE_SEPARATOR);
+            prevCommands.append("A=M").append(LINE_SEPARATOR);
         }
 
-        return null;
+        prevCommands.append("M=D").append(LINE_SEPARATOR);
+    }
+
+    private void getProperMemorySegment(String[] commandParts, StringBuilder prevCommands, String fileName){
+        if(commandParts[1].equals("pointer")){
+            return;
+        }
+
+        prevCommands.append("@" + (commandParts[1].equals("static")? fileName + "." : "") + commandParts[2]).append(LINE_SEPARATOR);
+        prevCommands.append("D=A").append(LINE_SEPARATOR);
+
+        if(!commandParts[1].equals("static")){
+            prevCommands.append(memoryMapping.get(commandParts[1])).append(LINE_SEPARATOR);
+            prevCommands.append("D=D+" + getProperMemoryValue(commandParts[1])).append(LINE_SEPARATOR);
+        }
+
+        prevCommands.append("@R13").append(LINE_SEPARATOR);
+        prevCommands.append("M=D").append(LINE_SEPARATOR);
     }
 
     private String translateAddCommand(String addCommand){

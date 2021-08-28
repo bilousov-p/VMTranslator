@@ -35,54 +35,20 @@ public class CodeTranslator {
     }
 
     private String translateLine(String codeLine, String fileName){
-        if(codeLine.startsWith("push")){
-            return translatePushCommand(codeLine, fileName);
-        }
+        String[] commandParts = codeLine.split(" ");
+        StringBuilder instructions = new StringBuilder();
+        instructions.append("// ").append(codeLine).append(LINE_SEPARATOR);
 
-        if(codeLine.startsWith("add")){
-            return translateAddCommand(codeLine);
-        }
-
-        if(codeLine.startsWith("eq")){
-            return translateEqCommand(codeLine);
-        }
-
-        if(codeLine.startsWith("lt")){
-            return translateLtCommand(codeLine);
-        }
-
-        if(codeLine.startsWith("gt")){
-            return translateGtCommand(codeLine);
-        }
-
-        if(codeLine.startsWith("sub")){
-            return translateSubCommand(codeLine);
-        }
-
-        if(codeLine.startsWith("neg")){
-            return translateNegCommand(codeLine);
-        }
-
-        if(codeLine.startsWith("and")){
-            return translateAndCommand(codeLine);
-        }
-
-        if(codeLine.startsWith("or")){
-            return translateOrCommand(codeLine);
-        }
-
-        if(codeLine.startsWith("not")){
-            return translateNotCommand(codeLine);
-        }
-
-        return translatePopCommand(codeLine, fileName);
+        return switch (commandParts[0]) {
+            case "push" -> translatePushCommand(instructions, commandParts, fileName);
+            case "pop" -> translatePopCommand(instructions, commandParts, fileName);
+            case "add", "sub", "or", "and" -> translateArthCommWithTwoOperands(instructions, codeLine);
+            case "neg", "not" -> translateLogicalCommand(instructions, codeLine);
+            default -> translateCompareCommand(instructions, codeLine);
+        };
     }
 
-    private String translatePushCommand(String pushCommand, String fileName){
-        String[] commandParts = pushCommand.split(" ");
-        StringBuilder instructions = new StringBuilder();
-        instructions.append("// ").append(pushCommand).append(LINE_SEPARATOR);
-
+    private String translatePushCommand(StringBuilder instructions, String[] commandParts, String fileName){
         selectMemorySegment(instructions, commandParts, fileName);
         getValueFromMemorySegment(instructions, commandParts);
 
@@ -92,14 +58,72 @@ public class CodeTranslator {
         return instructions.toString();
     }
 
-    private String translatePopCommand(String popCommand, String fileName){
-        String[] commandParts = popCommand.split(" ");
-        StringBuilder instructions = new StringBuilder();
-        instructions.append("// ").append(popCommand).append(LINE_SEPARATOR);
-
+    private String translatePopCommand(StringBuilder instructions, String[] commandParts, String fileName){
         getProperMemorySegment(commandParts, instructions, fileName);
         decreaseStackPointer(instructions);
         pushValueToMemSegment(commandParts, instructions);
+
+        return instructions.toString();
+    }
+
+    private String translateArthCommWithTwoOperands(StringBuilder instructions, String arthCommand){
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("A=M").append(LINE_SEPARATOR);
+        instructions.append("A=A-1").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("A=M").append(LINE_SEPARATOR);
+        instructions.append("A=A-1").append(LINE_SEPARATOR);
+        instructions.append("A=A-1").append(LINE_SEPARATOR);
+        instructions.append(arthCommand.equals("sub")? "D=M-D" : "D=D" + getOperator(arthCommand) + "M").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("M=M-1").append(LINE_SEPARATOR);
+
+        return instructions.toString();
+    }
+
+    private String translateLogicalCommand(StringBuilder instructions, String logCommand){
+        instructions.append("// ").append(logCommand).append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("A=M").append(LINE_SEPARATOR);
+        instructions.append("A=A-1").append(LINE_SEPARATOR);
+        instructions.append("M=" + (logCommand.equals("neg")? "-" : "!") + "M").append(LINE_SEPARATOR);
+
+        return instructions.toString();
+    }
+
+    private String translateCompareCommand(StringBuilder instructions, String compCommand){
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("A=M").append(LINE_SEPARATOR);
+        instructions.append("A=A-1").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("A=M").append(LINE_SEPARATOR);
+        instructions.append("A=A-1").append(LINE_SEPARATOR);
+        instructions.append("A=A-1").append(LINE_SEPARATOR);
+        instructions.append("D=D-M").append(LINE_SEPARATOR);
+        instructions.append("@POS_RESULT_" + labelId).append(LINE_SEPARATOR);
+        instructions.append("D;" + getJumpInstr(compCommand)).append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("A=M").append(LINE_SEPARATOR);
+        instructions.append("A=A-1").append(LINE_SEPARATOR);
+        instructions.append("A=A-1").append(LINE_SEPARATOR);
+        instructions.append("M=0").append(LINE_SEPARATOR);
+        instructions.append("@NEG_RESULT_" + labelId).append(LINE_SEPARATOR);
+        instructions.append("0;JMP").append(LINE_SEPARATOR);
+        instructions.append("(POS_RESULT_" + labelId + ")").append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("A=M").append(LINE_SEPARATOR);
+        instructions.append("A=A-1").append(LINE_SEPARATOR);
+        instructions.append("A=A-1").append(LINE_SEPARATOR);
+        instructions.append("M=-1").append(LINE_SEPARATOR);
+        instructions.append("(NEG_RESULT_" + labelId + ")").append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("M=M-1").append(LINE_SEPARATOR);
+
+        labelId++;
 
         return instructions.toString();
     }
@@ -180,222 +204,20 @@ public class CodeTranslator {
         prevCommands.append("M=D").append(LINE_SEPARATOR);
     }
 
-    private String translateAddCommand(String addCommand){
-        StringBuilder instructions = new StringBuilder();
-
-        instructions.append("// ").append(addCommand).append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=M").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=D+M").append(LINE_SEPARATOR);
-        instructions.append("M=D").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("M=M-1").append(LINE_SEPARATOR);
-
-        return instructions.toString();
+    private String getOperator(String arthCommand){
+        return switch (arthCommand) {
+            case "add" -> "+";
+            case "sub" -> "-";
+            case "and" -> "&";
+            default -> "|";
+        };
     }
 
-    private String translateSubCommand(String subCommand){
-        StringBuilder instructions = new StringBuilder();
-
-        instructions.append("// ").append(subCommand).append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=M").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=M-D").append(LINE_SEPARATOR);
-        instructions.append("M=D").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("M=M-1").append(LINE_SEPARATOR);
-
-        return instructions.toString();
+    private String getJumpInstr(String logCommand){
+        return switch (logCommand) {
+            case "eq" -> "JEQ";
+            case "gt" -> "JLT";
+            default -> "JGT";
+        };
     }
-
-    private String translateAndCommand(String andCommand){
-        StringBuilder instructions = new StringBuilder();
-
-        instructions.append("// ").append(andCommand).append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=M").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=D&M").append(LINE_SEPARATOR);
-        instructions.append("M=D").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("M=M-1").append(LINE_SEPARATOR);
-
-        return instructions.toString();
-    }
-
-    private String translateOrCommand(String orCommand){
-        StringBuilder instructions = new StringBuilder();
-
-        instructions.append("// ").append(orCommand).append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=M").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=D|M").append(LINE_SEPARATOR);
-        instructions.append("M=D").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("M=M-1").append(LINE_SEPARATOR);
-
-        return instructions.toString();
-    }
-
-    private String translateNotCommand(String notCommand){
-        StringBuilder instructions = new StringBuilder();
-
-        instructions.append("// ").append(notCommand).append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("M=!M").append(LINE_SEPARATOR);
-
-        return instructions.toString();
-    }
-
-    private String translateNegCommand(String negCommand){
-        StringBuilder instructions = new StringBuilder();
-
-        instructions.append("// ").append(negCommand).append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("M=-M").append(LINE_SEPARATOR);
-
-        return instructions.toString();
-    }
-
-    private String translateEqCommand(String eqCommand){
-        StringBuilder instructions = new StringBuilder();
-
-        instructions.append("// ").append(eqCommand).append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=M").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=D-M").append(LINE_SEPARATOR);
-        instructions.append("@EQ_" + labelId).append(LINE_SEPARATOR);
-        instructions.append("D;JEQ").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("M=0").append(LINE_SEPARATOR);
-        instructions.append("@EQ_END_" + labelId).append(LINE_SEPARATOR);
-        instructions.append("0;JMP").append(LINE_SEPARATOR);
-        instructions.append("(EQ_" + labelId + ")").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("M=-1").append(LINE_SEPARATOR);
-        instructions.append("(EQ_END_" + labelId + ")").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("M=M-1").append(LINE_SEPARATOR);
-
-        labelId++;
-
-        return instructions.toString();
-    }
-
-    private String translateLtCommand(String ltCommand){
-        StringBuilder instructions = new StringBuilder();
-
-        instructions.append("// ").append(ltCommand).append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=M").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=D-M").append(LINE_SEPARATOR);
-        instructions.append("@LT_" + labelId).append(LINE_SEPARATOR);
-        instructions.append("D;JGT").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("M=0").append(LINE_SEPARATOR);
-        instructions.append("@LT_END_" + labelId).append(LINE_SEPARATOR);
-        instructions.append("0;JMP").append(LINE_SEPARATOR);
-        instructions.append("(LT_" + labelId + ")").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("M=-1").append(LINE_SEPARATOR);
-        instructions.append("(LT_END_" + labelId + ")").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("M=M-1").append(LINE_SEPARATOR);
-
-        labelId++;
-
-        return instructions.toString();
-    }
-
-    private String translateGtCommand(String gtCommand){
-        StringBuilder instructions = new StringBuilder();
-
-        instructions.append("// ").append(gtCommand).append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=M").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("D=D-M").append(LINE_SEPARATOR);
-        instructions.append("@GT_" + labelId).append(LINE_SEPARATOR);
-        instructions.append("D;JLT").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("M=0").append(LINE_SEPARATOR);
-        instructions.append("@GT_END_" + labelId).append(LINE_SEPARATOR);
-        instructions.append("0;JMP").append(LINE_SEPARATOR);
-        instructions.append("(GT_" + labelId + ")").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("A=M").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("A=A-1").append(LINE_SEPARATOR);
-        instructions.append("M=-1").append(LINE_SEPARATOR);
-        instructions.append("(GT_END_" + labelId + ")").append(LINE_SEPARATOR);
-        instructions.append("@SP").append(LINE_SEPARATOR);
-        instructions.append("M=M-1").append(LINE_SEPARATOR);
-
-        labelId++;
-
-        return instructions.toString();
-    }
-
 }

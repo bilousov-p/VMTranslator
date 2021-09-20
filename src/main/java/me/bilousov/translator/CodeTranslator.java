@@ -44,6 +44,9 @@ public class CodeTranslator {
             case "pop" -> translatePopCommand(instructions, commandParts, fileName);
             case "add", "sub", "or", "and" -> translateArthCommWithTwoOperands(instructions, codeLine);
             case "neg", "not" -> translateLogicalCommand(instructions, codeLine);
+            case "label" -> translateLabelCommand(instructions, codeLine);
+            case "goto" -> translateGotoCommand(instructions, codeLine);
+            case "if-goto" -> translateIfGotoCommand(instructions, codeLine);
             default -> translateCompareCommand(instructions, codeLine);
         };
     }
@@ -84,11 +87,32 @@ public class CodeTranslator {
     }
 
     private String translateLogicalCommand(StringBuilder instructions, String logCommand){
-        instructions.append("// ").append(logCommand).append(LINE_SEPARATOR);
         instructions.append("@SP").append(LINE_SEPARATOR);
         instructions.append("A=M").append(LINE_SEPARATOR);
         instructions.append("A=A-1").append(LINE_SEPARATOR);
         instructions.append("M=" + (logCommand.equals("neg")? "-" : "!") + "M").append(LINE_SEPARATOR);
+
+        return instructions.toString();
+    }
+
+    private String translateLabelCommand(StringBuilder instructions, String labelCommand){
+        instructions.append("(" + labelCommand.split(" ")[1] + ")").append(LINE_SEPARATOR);
+
+        return instructions.toString();
+    }
+
+    private String translateGotoCommand(StringBuilder instructions, String gotoCommand){
+        instructions.append("@").append(gotoCommand.split(" ")[1]).append(LINE_SEPARATOR);
+        instructions.append("0;JMP").append(LINE_SEPARATOR);
+
+        return instructions.toString();
+    }
+
+    private String translateIfGotoCommand(StringBuilder instructions, String ifGotoCommand){
+        decreaseStackPointer(instructions);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@" + ifGotoCommand.split(" ")[1]).append(LINE_SEPARATOR);
+        instructions.append("D;JNE").append(LINE_SEPARATOR);
 
         return instructions.toString();
     }

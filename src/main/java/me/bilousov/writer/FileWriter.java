@@ -1,9 +1,6 @@
 package me.bilousov.writer;
 
-import java.io.BufferedWriter;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.io.*;
 import java.util.List;
 
 public class FileWriter {
@@ -13,7 +10,16 @@ public class FileWriter {
     private static final String LINE_SEPARATOR = System.getProperty("line.separator");
 
     public static void writeBinaryFileWithLines(List<String> binaryLines, String path) throws IOException {
-        FileOutputStream fos = new FileOutputStream(path.replace(INPUT_FILE_EXTENSION, OUTPUT_FILE_EXTENSION));
+        File vmFile = new File(path);
+        String outputFilePath;
+
+        if(vmFile.isDirectory()){
+            outputFilePath = path + "\\" + vmFile.getName() + OUTPUT_FILE_EXTENSION;
+        } else {
+            outputFilePath = path.replace(INPUT_FILE_EXTENSION, OUTPUT_FILE_EXTENSION);
+        }
+
+        FileOutputStream fos = new FileOutputStream(outputFilePath);
         BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
 
         for (String line : binaryLines) {

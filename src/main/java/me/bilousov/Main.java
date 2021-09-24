@@ -13,6 +13,6 @@ public class Main {
 
         CodeTranslator codeTranslator = new CodeTranslator();
 
-        FileWriter.writeBinaryFileWithLines(codeTranslator.translateCodeToAssembly(parser.parseVMFile(args[0]), parser.getFileName()), args[0]);
+        FileWriter.writeBinaryFileWithLines(codeTranslator.translateCodeToAssembly(parser.parseVMFiles(args[0]), parser.getFileName()), args[0]);
     }
 }

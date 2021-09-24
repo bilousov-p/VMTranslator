@@ -12,9 +12,30 @@ public class VMCodeParser {
     private static final String COMMENT_IDENTIFIER = "//";
     private String fileName;
 
-    public List<String> parseVMFile(String fileName){
+    public List<String> parseVMFiles(String path){
+        File vmFile = new File(path);
+
+        if(vmFile.isDirectory()){
+            return parseVMDirectory(vmFile);
+        }
+
+        return parseVMFile(vmFile);
+    }
+
+    private List<String> parseVMDirectory(File directory){
         List<String> vmInstructions = new ArrayList<>();
-        File vmFile = new File(fileName);
+
+        for(File file : directory.listFiles()){
+            if(file.getName().endsWith(".vm")) {
+                vmInstructions.addAll(parseVMFile(file));
+            }
+        }
+
+        return vmInstructions;
+    }
+
+    private List<String> parseVMFile(File vmFile){
+        List<String> vmInstructions = new ArrayList<>();
         this.fileName = vmFile.getName();
 
         try {

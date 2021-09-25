@@ -13,6 +13,7 @@ public class CodeTranslator {
 
     private Map<String, String> memoryMapping;
     private int labelId;
+    private int returnAddressId = 0;
 
     public CodeTranslator() {
         labelId = 0;
@@ -26,6 +27,7 @@ public class CodeTranslator {
 
     public List<String> translateCodeToAssembly(List<String> vmCodeLines, String fileName){
         List<String> translated = new ArrayList<>();
+        addBootstrapCode(translated, fileName);
 
         for (String line : vmCodeLines){
             translated.add(translateLine(line, fileName));
@@ -47,8 +49,24 @@ public class CodeTranslator {
             case "label" -> translateLabelCommand(instructions, codeLine);
             case "goto" -> translateGotoCommand(instructions, codeLine);
             case "if-goto" -> translateIfGotoCommand(instructions, codeLine);
+            case "call" -> translateCallCommand(instructions, codeLine, fileName);
+            case "function" -> translateFunctionCommand(instructions, codeLine, fileName);
+            case "return" -> translateReturnCommand(instructions);
             default -> translateCompareCommand(instructions, codeLine);
         };
+    }
+
+    private void addBootstrapCode(List<String> instructions, String fileName){
+        StringBuilder bootstrapCode = new StringBuilder();
+
+        bootstrapCode.append("// bootstrap code").append(LINE_SEPARATOR);
+        bootstrapCode.append("@256").append(LINE_SEPARATOR);
+        bootstrapCode.append("D=A").append(LINE_SEPARATOR);
+        bootstrapCode.append("@SP").append(LINE_SEPARATOR);
+        bootstrapCode.append("M=D").append(LINE_SEPARATOR);
+        translateCallCommand(bootstrapCode, "call Sys.init 0", fileName);
+
+        instructions.add(bootstrapCode.toString());
     }
 
     private String translatePushCommand(StringBuilder instructions, String[] commandParts, String fileName){
@@ -113,6 +131,157 @@ public class CodeTranslator {
         instructions.append("D=M").append(LINE_SEPARATOR);
         instructions.append("@" + ifGotoCommand.split(" ")[1]).append(LINE_SEPARATOR);
         instructions.append("D;JNE").append(LINE_SEPARATOR);
+
+        return instructions.toString();
+    }
+
+    private String translateCallCommand(StringBuilder instructions, String callCommand, String fileName){
+        String returnLabel = fileName + "$ret." + returnAddressId++;
+        // push return address
+        instructions.append("@" + returnLabel).append(LINE_SEPARATOR);
+        instructions.append("D=A").append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("A=M").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("M=M+1").append(LINE_SEPARATOR);
+        // push segments of a caller
+        pushSegmentToStack(instructions, "LCL");
+        pushSegmentToStack(instructions, "ARG");
+        pushSegmentToStack(instructions, "THIS");
+        pushSegmentToStack(instructions, "THAT");
+
+        repositArgSegment(instructions, 5 + Integer.parseInt(callCommand.split(" ")[2]));
+        // change LCL segment for new called func
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@LCL").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+        // goto called func
+        instructions.append("@" + fileName + "." + callCommand.split(" ")[1]).append(LINE_SEPARATOR);
+        instructions.append("0;JMP").append(LINE_SEPARATOR);
+        // insert return label
+        instructions.append("(" + returnLabel + ")").append(LINE_SEPARATOR);
+
+        return instructions.toString();
+    }
+
+    private void pushSegmentToStack(StringBuilder prevCommands, String segment){
+        prevCommands.append("@" + segment).append(LINE_SEPARATOR);
+        prevCommands.append("D=M").append(LINE_SEPARATOR);
+        prevCommands.append("@SP").append(LINE_SEPARATOR);
+        prevCommands.append("A=M").append(LINE_SEPARATOR);
+        prevCommands.append("M=D").append(LINE_SEPARATOR);
+        prevCommands.append("@SP").append(LINE_SEPARATOR);
+        prevCommands.append("M=M+1").append(LINE_SEPARATOR);
+    }
+
+    private void repositArgSegment(StringBuilder prevCommands, int changeOn){
+        prevCommands.append("@SP").append(LINE_SEPARATOR);
+        prevCommands.append("D=M").append(LINE_SEPARATOR);
+        prevCommands.append("@" + changeOn).append(LINE_SEPARATOR);
+        prevCommands.append("D=D-A").append(LINE_SEPARATOR);
+        prevCommands.append("@ARG").append(LINE_SEPARATOR);
+        prevCommands.append("M=D").append(LINE_SEPARATOR);
+    }
+
+    private String translateFunctionCommand(StringBuilder instructions, String functionCommand, String fileName){
+        // generate label to which PC will jump
+        instructions.append("(" + fileName + "." + functionCommand.split(" ")[1] + ")").append(LINE_SEPARATOR);
+        // generate local segment
+        for(int i = 0; i< Integer.parseInt(functionCommand.split(" ")[2]); i++){
+            instructions.append("@0").append(LINE_SEPARATOR);
+            instructions.append("D=A").append(LINE_SEPARATOR);
+            instructions.append("@SP").append(LINE_SEPARATOR);
+            instructions.append("A=M").append(LINE_SEPARATOR);
+            instructions.append("M=D").append(LINE_SEPARATOR);
+            increaseStackPointer(instructions);
+        }
+
+
+        return instructions.toString();
+    }
+
+    private String translateReturnCommand(StringBuilder instructions){
+        // save LCL pointer to temp variable
+        instructions.append("@LCL").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@endFrame").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+
+        // get the return address
+        instructions.append("@endFrame").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@5").append(LINE_SEPARATOR);
+        instructions.append("D=D-A").append(LINE_SEPARATOR);
+        instructions.append("A=D").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@returnAddress").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+
+        // place return value to ARG 0
+        instructions.append("@0").append(LINE_SEPARATOR);
+        instructions.append("D=A").append(LINE_SEPARATOR);
+        instructions.append("@ARG").append(LINE_SEPARATOR);
+        instructions.append("D=D+M").append(LINE_SEPARATOR);
+        instructions.append("@R13").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("M=M-1").append(LINE_SEPARATOR);
+        instructions.append("A=M").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@R13").append(LINE_SEPARATOR);
+        instructions.append("A=M").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+
+        // place stack pointer after return value
+        instructions.append("@ARG").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@SP").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+        increaseStackPointer(instructions);
+
+        // recover the callers segments
+        instructions.append("@endFrame").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@1").append(LINE_SEPARATOR);
+        instructions.append("D=D-A").append(LINE_SEPARATOR);
+        instructions.append("A=D").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@THAT").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+
+        instructions.append("@endFrame").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@2").append(LINE_SEPARATOR);
+        instructions.append("D=D-A").append(LINE_SEPARATOR);
+        instructions.append("A=D").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@THIS").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+
+        instructions.append("@endFrame").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@3").append(LINE_SEPARATOR);
+        instructions.append("D=D-A").append(LINE_SEPARATOR);
+        instructions.append("A=D").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@ARG").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+
+        instructions.append("@endFrame").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@4").append(LINE_SEPARATOR);
+        instructions.append("D=D-A").append(LINE_SEPARATOR);
+        instructions.append("A=D").append(LINE_SEPARATOR);
+        instructions.append("D=M").append(LINE_SEPARATOR);
+        instructions.append("@LCL").append(LINE_SEPARATOR);
+        instructions.append("M=D").append(LINE_SEPARATOR);
+
+        // jump to return address
+        instructions.append("@returnAddress").append(LINE_SEPARATOR);
+        instructions.append("A=M").append(LINE_SEPARATOR);
+        instructions.append("0;JMP").append(LINE_SEPARATOR);
 
         return instructions.toString();
     }

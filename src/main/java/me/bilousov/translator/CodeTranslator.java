@@ -15,6 +15,8 @@ public class CodeTranslator {
     private int labelId;
     private int returnAddressId = 0;
 
+    private boolean firstCall = true;
+
     public CodeTranslator() {
         labelId = 0;
         memoryMapping = new HashMap<>();
@@ -26,8 +28,13 @@ public class CodeTranslator {
     }
 
     public List<String> translateCodeToAssembly(List<String> vmCodeLines, String fileName){
+        System.out.println("translateCodeToAssembly with fileName: " + fileName);
         List<String> translated = new ArrayList<>();
-        addBootstrapCode(translated, fileName);
+
+        if (firstCall){
+            addBootstrapCode(translated);
+            firstCall = false;
+        }
 
         for (String line : vmCodeLines){
             translated.add(translateLine(line, fileName));
@@ -40,6 +47,7 @@ public class CodeTranslator {
         String[] commandParts = codeLine.split(" ");
         StringBuilder instructions = new StringBuilder();
         instructions.append("// ").append(codeLine).append(LINE_SEPARATOR);
+        instructions.append("@22222").append(LINE_SEPARATOR);
 
         return switch (commandParts[0]) {
             case "push" -> translatePushCommand(instructions, commandParts, fileName);
@@ -56,7 +64,7 @@ public class CodeTranslator {
         };
     }
 
-    private void addBootstrapCode(List<String> instructions, String fileName){
+    private void addBootstrapCode(List<String> instructions){
         StringBuilder bootstrapCode = new StringBuilder();
 
         bootstrapCode.append("// bootstrap code").append(LINE_SEPARATOR);
@@ -64,7 +72,7 @@ public class CodeTranslator {
         bootstrapCode.append("D=A").append(LINE_SEPARATOR);
         bootstrapCode.append("@SP").append(LINE_SEPARATOR);
         bootstrapCode.append("M=D").append(LINE_SEPARATOR);
-        translateCallCommand(bootstrapCode, "call Sys.init 0", fileName);
+        translateCallCommand(bootstrapCode, "call Sys.init 0", "Sys.vm");
 
         instructions.add(bootstrapCode.toString());
     }
@@ -158,7 +166,7 @@ public class CodeTranslator {
         instructions.append("@LCL").append(LINE_SEPARATOR);
         instructions.append("M=D").append(LINE_SEPARATOR);
         // goto called func
-        instructions.append("@" + fileName + "." + callCommand.split(" ")[1]).append(LINE_SEPARATOR);
+        instructions.append("@" + callCommand.split(" ")[1]).append(LINE_SEPARATOR);
         instructions.append("0;JMP").append(LINE_SEPARATOR);
         // insert return label
         instructions.append("(" + returnLabel + ")").append(LINE_SEPARATOR);
@@ -187,7 +195,8 @@ public class CodeTranslator {
 
     private String translateFunctionCommand(StringBuilder instructions, String functionCommand, String fileName){
         // generate label to which PC will jump
-        instructions.append("(" + fileName + "." + functionCommand.split(" ")[1] + ")").append(LINE_SEPARATOR);
+        // instructions.append("(" + fileName + "." + functionCommand.split(" ")[1] + ")").append(LINE_SEPARATOR);
+        instructions.append("(" + functionCommand.split(" ")[1] + ")").append(LINE_SEPARATOR);
         // generate local segment
         for(int i = 0; i< Integer.parseInt(functionCommand.split(" ")[2]); i++){
             instructions.append("@0").append(LINE_SEPARATOR);
@@ -398,7 +407,7 @@ public class CodeTranslator {
     }
 
     private String getOperator(String arthCommand){
-        return switch (arthCommand) {
+        return switch (arthCommand.split(" ")[0].trim()) {
             case "add" -> "+";
             case "sub" -> "-";
             case "and" -> "&";

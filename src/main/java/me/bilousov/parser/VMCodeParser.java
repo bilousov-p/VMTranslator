@@ -1,5 +1,7 @@
 package me.bilousov.parser;
 
+import me.bilousov.translator.CodeTranslator;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -12,6 +14,10 @@ public class VMCodeParser {
     private static final String COMMENT_IDENTIFIER = "//";
     private String fileName;
 
+    private List<String> translatedLines = new ArrayList<>();
+    private CodeTranslator codeTranslator = new CodeTranslator();
+
+
     public List<String> parseVMFiles(String path){
         File vmFile = new File(path);
 
@@ -20,6 +26,16 @@ public class VMCodeParser {
         }
 
         return parseVMFile(vmFile);
+    }
+
+    public List<String> parseAndTranslateVMFiles(String path){
+        File vmFile = new File(path);
+
+        if (vmFile.isDirectory()){
+            return parseAndTranslateVMDirectory(vmFile);
+        }
+
+        return parseAndTranslateVMFile(vmFile);
     }
 
     private List<String> parseVMDirectory(File directory){
@@ -32,6 +48,38 @@ public class VMCodeParser {
         }
 
         return vmInstructions;
+    }
+
+    private List<String> parseAndTranslateVMDirectory(File directory){
+        for(File file : directory.listFiles()){
+            if(file.getName().endsWith(".vm")) {
+                translatedLines.addAll(parseAndTranslateVMFile(file));
+            }
+        }
+
+        return translatedLines;
+    }
+
+    private List<String> parseAndTranslateVMFile(File vmFile){
+        List<String> vmInstructions = new ArrayList<>();
+        this.fileName = vmFile.getName();
+
+        try {
+            BufferedReader bufferedReader = new BufferedReader(new FileReader(vmFile));
+            String line = bufferedReader.readLine();
+
+            while (line != null) {
+                if (lineIsInstruction(line)) {
+                    vmInstructions.add(line);
+                }
+
+                line = bufferedReader.readLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return codeTranslator.translateCodeToAssembly(vmInstructions, vmFile.getName());
     }
 
     private List<String> parseVMFile(File vmFile){

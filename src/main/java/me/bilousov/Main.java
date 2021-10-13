@@ -10,10 +10,6 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
         VMCodeParser parser = new VMCodeParser();
-
-        // CodeTranslator codeTranslator = new CodeTranslator();
-
-        // FileWriter.writeBinaryFileWithLines(codeTranslator.translateCodeToAssembly(parser.parseVMFiles(args[0]), parser.getFileName()), args[0]);
         FileWriter.writeBinaryFileWithLines(parser.parseAndTranslateVMFiles(args[0]), args[0]);
     }
 }
